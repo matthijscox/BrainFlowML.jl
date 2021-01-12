@@ -1,0 +1,4 @@
+name = "BrainFLowML"
+uuid = "51c0c86e-a522-4bd0-ba5d-5a5aa8713068"
+authors = ["matthijscox <matthijs.cox@gmail.com>"]
+version = "0.1.0"
