@@ -10,9 +10,9 @@ function get_gesture(file_name)
 end
 
 @testset "BrainFlowML" begin
-    bio_data = get_gesture("left_gesture.csv")
 
     @testset "BioData iteration" begin
+        bio_data = get_gesture("left_gesture.csv")
         @test bio_data isa BrainFlowML.BioData
         itr = each_channel(bio_data)
         @test itr isa BrainFlowML.ChannelIterator
@@ -22,15 +22,37 @@ end
         @test collected_itr isa Array{Array{Float64,1},1}
     end
 
+    @testset "widen range" begin
+        v = [false, false, false, true, false, false, false]
+        BrainFlowML.widen_range!(v, 2)
+        @test v == [false, true, true, true, true, true, false]
+        BrainFlowML.widen_range!(v, 3) # push it over the edges
+        @test v == [true, true, true, true, true, true, true]
+
+        v = [true, false, false]
+        BrainFlowML.widen_range!(v, 1)
+        @test v == [true, true, false]
+    end
+
     @testset "Filtering and DSP" begin
+        bio_data = get_gesture("left_gesture.csv")
+
         BrainFlowML.detrend!(bio_data)
         a_channel = first(each_channel(bio_data))
         @test isapprox(mean(a_channel), 0.0, atol=1e-10)
 
-        h = BrainFlowML.smooth_envelope(a_channel) 
+        h = BrainFlowML.smooth_envelope(a_channel)
         @test h isa AbstractVector
 
-        smooth_data = BrainFlowML.smooth_envelope(bio_data) 
+        smooth_data = BrainFlowML.smooth_envelope(bio_data)
         @test smooth_data isa BrainFlowML.BioData
+
+        labeled = BrainFlowML.label_gestures(bio_data)
+
+        # for manual verification
+        # Using Plots
+        # summed_data = BrainFlowML.sum_channels(smooth_data)
+        # plot(summed_data)
+        # plot!(labeled.*maximum(summed_data))
     end
 end

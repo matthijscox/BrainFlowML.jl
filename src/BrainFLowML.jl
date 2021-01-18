@@ -12,7 +12,7 @@ module BrainFlowML
 
     include("savgol.jl")
 
-    struct BioData
+    mutable struct BioData
         raw
         channels::AbstractVector{Int} # indices of the (emg/eeg) data channel columns
         sample_rate::Int
@@ -65,13 +65,33 @@ module BrainFlowML
         return reduce(+, each_channel(b))
     end
 
-    # crappy empirical way to label the gestures
-    function label_gestures(b::BioData, shift=0.05)
+    # crappy empirical way to automatically label the gestures
+    function label_gestures(b::BioData, shift=0.15)
         smooth_data = smooth_envelope(b)
         summed_data = sum_channels(smooth_data)
         threshold = maximum(summed_data) / 3.5
-        labeled = summed_data > threshold
-        #sample_shift = Int(shift * b.sample_rate)
+        labeled = summed_data .> threshold
+        sample_shift = Int(round(shift * b.sample_rate))
+        widen_range!(labeled, sample_shift)
+        return labeled
+    end
+
+    # shift the true values left and right
+    function widen_range!(v::AbstractVector{Bool}, shift::Int)
+        deltas = diff(v)
+        len = length(v)
+        starts = findall(x->x==1, deltas)
+        for start_index in starts
+            new_start_index = start_index - shift + 1
+            new_start_index = new_start_index < 1 ? 1 : new_start_index
+            v[new_start_index:start_index] .= true
+        end
+        endings = findall(x->x==-1, deltas)
+        for end_index in endings
+            new_end_index = end_index + shift
+            new_end_index = new_end_index > len ? len : new_end_index
+            v[end_index:new_end_index] .= true
+        end
     end
 
     function load_gesture(filepath)
