@@ -16,6 +16,7 @@ module BrainFlowML
         raw
         channels::AbstractVector{Int} # indices of the (emg/eeg) data channel columns
         sample_rate::Int
+        labels::AbstractVector{Int} # labels for the gestures, 0 is no gesture
     end
     channels(b::BioData) = b.channels
     raw_data(b::BioData) = b.raw
@@ -52,7 +53,7 @@ module BrainFlowML
         for (index, chan) in enumerate(each_channel(b))
             enveloped_data[:, index] = smooth_envelope(chan)
         end
-        return BioData(enveloped_data, 1:length(channels(b)), b.sample_rate)
+        return BioData(enveloped_data, 1:length(channels(b)), b.sample_rate, b.labels)
     end
 
     function smooth_envelope(b::AbstractArray, window_size=33)
@@ -66,14 +67,15 @@ module BrainFlowML
     end
 
     # crappy empirical way to automatically label the gestures
-    function label_gestures(b::BioData, shift=0.15)
+    function label_gesture!(b::BioData; shift=0.15, gesture::Int=1)
         smooth_data = smooth_envelope(b)
         summed_data = sum_channels(smooth_data)
         threshold = maximum(summed_data) / 3.5
         labeled = summed_data .> threshold
         sample_shift = Int(round(shift * b.sample_rate))
         widen_range!(labeled, sample_shift)
-        return labeled
+        b.labels = labeled.*gesture
+        return nothing
     end
 
     # shift the true values left and right
@@ -97,7 +99,8 @@ module BrainFlowML
     function load_gesture(filepath)
         df = DataFrame(CSV.File(filepath))
         M = Matrix(df) # using a matrix is faster than a dataframe? Could not be generated directly from CSV...
-        return BioData(M, 1:8, 600)
+        labels = zeros(Int, size(M)[1])
+        return BioData(M, 1:8, 600, labels)
     end
 
 end # module

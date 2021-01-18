@@ -34,7 +34,7 @@ end
         @test v == [true, true, false]
     end
 
-    @testset "Filtering and DSP" begin
+    @testset "Labeling gestures with DSP" begin
         bio_data = get_gesture("left_gesture.csv")
 
         BrainFlowML.detrend!(bio_data)
@@ -47,12 +47,15 @@ end
         smooth_data = BrainFlowML.smooth_envelope(bio_data)
         @test smooth_data isa BrainFlowML.BioData
 
-        labeled = BrainFlowML.label_gestures(bio_data)
+        gesture = 2
+        BrainFlowML.label_gesture!(bio_data; gesture=gesture)
+        @test gesture ∈ bio_data.labels
 
         # for manual verification
-        # Using Plots
+        # using Plots
         # summed_data = BrainFlowML.sum_channels(smooth_data)
         # plot(summed_data)
-        # plot!(labeled.*maximum(summed_data))
+        # plot!(bio_data.labels.*maximum(summed_data)/gesture)
     end
+
 end
