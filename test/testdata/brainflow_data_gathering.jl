@@ -8,7 +8,7 @@ using CSV
 function emg_data_to_dataframe(data, board_id::BrainFlow.BoardIds = BrainFlow.GFORCE_PRO_BOARD)
     emg_channels = BrainFlow.get_emg_channels(board_id)
     emg_data = data[emg_channels,:]
-    emg_names = Symbol.(["emg$x" for x in emg_channels])
+    emg_names = Symbol.(["emg$x" for x in 1:length(emg_channels)])
     df = DataFrame(emg_data')
     DataFrames.rename!(df, emg_names)
 
