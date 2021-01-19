@@ -64,9 +64,8 @@ end
 
         A = rand(Int, nsamples, nchannels)
         X = BrainFlowML.partition_samples(A, sample_size, step_size)
-        @test size(X) == (expected_partitions, sample_size*nchannels)
-        expected_slice = A[partition3, :][:]
-        @test X[3, :] == expected_slice
+        @test size(X) == (sample_size, nchannels, expected_partitions)
+        @test X[:,:,3] == A[partition3, :]
 
         v = rand(Int, nsamples)
         y = BrainFlowML.partition_labels(v, sample_size, step_size)
@@ -101,6 +100,13 @@ end
         # summed_data = BrainFlowML.sum_channels(smooth_data)
         # plot(summed_data)
         # plot!(bio_data.labels.*maximum(summed_data)/gesture)
+    end
+
+    @testset "load labeled gestures" begin
+        file_names = ("left_gesture.csv", "right_gesture.csv", "fist_gesture.csv", "spread_gesture.csv")
+        file_paths = [joinpath(BrainFlowML.testdata_path, name) for name in file_names]
+        bio_data = BrainFlowML.load_labeled_gestures(file_paths)
+        @test unique(bio_data.labels) == [0, 1, 2, 3, 4]
     end
 
 end

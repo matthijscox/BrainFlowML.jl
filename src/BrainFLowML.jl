@@ -21,6 +21,7 @@ module BrainFlowML
     end
     channels(b::BioData) = b.channels
     raw_data(b::BioData) = b.raw
+    channel_data(b::BioData) = view(raw_data(b), :, channels(b))
 
     # initialize zero labels
     function BioData(raw, channels::AbstractVector{Int}, sample_rate::Int)
@@ -57,8 +58,13 @@ module BrainFlowML
 
     function detrend!(b::BioData)
         for chan in each_channel(b)
-            chan .-= mean(chan)
+            detrend!(chan)
         end
+    end
+
+    function detrend!(v::AbstractVector)
+        v .-= mean(v)
+        return nothing
     end
 
     # calculates the envelope function of each bio data channel
@@ -110,20 +116,19 @@ module BrainFlowML
         end
     end
 
-    # slice windowed partitions out of A[window, :] and dump into matrix X[i, :] for use in algorithms
+    # slice windowed partitions out of A[window, :] and dump into matrix X[:, :, i] for use in algorithms
+    # transpose(reshape(X, nsamples*nchannels, npartitions)) for use in algorithms
     function partition_samples(A::AbstractMatrix{T}, sample_size::Int, step_size::Int) where T
         nsamples = size(A, 1)
         nchannels = size(A, 2)
         npartitions = partition_length(nsamples, sample_size, step_size)
-        X = zeros(T, nchannels*sample_size, npartitions)
-        @inbounds for (col, part) in enumerate(partition(1:nsamples, sample_size, step_size))
+        X = zeros(T, sample_size, nchannels,  npartitions)
+        @inbounds for (n, part) in enumerate(partition(1:nsamples, sample_size, step_size))
             idx = [x for x in part] # need to convert tuple to array, perhaps this stuff can be done smarter
             slice_of_A = A[idx, :]
-            for (row, value) in enumerate(slice_of_A)
-                X[row, col] = value
-            end
+            X[:, :, n] .= slice_of_A
         end
-        return transpose(X)
+        return X
     end
 
     # get the corresponding label per partition
@@ -139,7 +144,7 @@ module BrainFlowML
     end
 
     function partition_samples(b::BioData, sample_size::Int, step_size::Int)
-        X = partition_samples(raw_data(b), sample_size, step_size)
+        X = partition_samples(channel_data(b), sample_size, step_size)
         y = partition_labels(b.labels, sample_size, step_size)
         return (X, y)
     end
@@ -152,6 +157,22 @@ module BrainFlowML
         df = DataFrame(CSV.File(filepath))
         M = Matrix(df) # using a matrix is faster than a dataframe? Could not be generated directly from CSV...
         return BioData(M, 1:8, 600)
+    end
+
+    function load_labeled_gesture(file_name, gesture::Int)
+        bio_data = load_gesture(file_name)
+        detrend!(bio_data)
+        label_gesture!(bio_data; gesture=gesture)
+        return bio_data
+    end
+
+    function load_labeled_gestures(file_names)
+        (first_file, rest) = Iterators.peel(file_names)
+        bio_data = load_labeled_gesture(first_file, 1)
+        for (g, file_name) in enumerate(rest)
+            append!(bio_data, load_labeled_gesture(file_name, g+1))
+        end
+        return bio_data
     end
 
 end # module
