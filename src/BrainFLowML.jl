@@ -22,6 +22,12 @@ module BrainFlowML
     channels(b::BioData) = b.channels
     raw_data(b::BioData) = b.raw
 
+    # initialize zero labels
+    function BioData(raw, channels::AbstractVector{Int}, sample_rate::Int)
+        labels = zeros(Int, size(raw, 1))
+        return BioData(raw, channels, sample_rate, labels)
+    end
+
     struct ChannelIterator
         data::BioData
     end
@@ -59,7 +65,7 @@ module BrainFlowML
 
     function smooth_envelope(b::AbstractArray, window_size=33)
         hilbert_amplitude = abs.(DSP.Util.hilbert(b))
-        v = savitzkyGolay(hilbert_amplitude, 31, 1)
+        v = savitzkyGolay(hilbert_amplitude, window_size, 1)
         return v
     end
 
@@ -101,7 +107,7 @@ module BrainFlowML
     function partition_samples(A::AbstractMatrix{T}, sample_size::Int, step_size::Int) where T
         nsamples = size(A, 1)
         nchannels = size(A, 2)
-        npartitions = Int(floor((nsamples-sample_size)/step_size)+1)
+        npartitions = partition_length(nsamples, sample_size, step_size)
         X = zeros(T, nchannels*sample_size, npartitions)
         @inbounds for (col, part) in enumerate(partition(1:nsamples, sample_size, step_size))
             idx = [x for x in part] # need to convert tuple to array, perhaps this stuff can be done smarter
@@ -113,11 +119,32 @@ module BrainFlowML
         return X
     end
 
+    # get the corresponding label per partition
+    function partition_labels(labels::AbstractVector{T}, sample_size::Int, step_size::Int) where T
+        nsamples = length(labels)
+        npartitions = partition_length(nsamples, sample_size, step_size)
+        y = zeros(T, npartitions)
+        for (n, p) in enumerate(partition(1:nsamples, sample_size, step_size))
+            idx = p[end] # just use last labeled value as the ground truth for now
+            y[n] = labels[idx]
+        end
+        return y
+    end
+
+    function partition_samples(b::BioData, sample_size::Int, step_size::Int)
+        X = partition_samples(raw_data(b), sample_size, step_size)
+        y = partition_labels(b.labels, sample_size, step_size)
+        return (X, y)
+    end
+
+    function partition_length(nsamples::Int, sample_size::Int, step_size::Int)
+        return Int(floor((nsamples-sample_size)/step_size)+1)
+    end
+
     function load_gesture(filepath)
         df = DataFrame(CSV.File(filepath))
         M = Matrix(df) # using a matrix is faster than a dataframe? Could not be generated directly from CSV...
-        labels = zeros(Int, size(M)[1])
-        return BioData(M, 1:8, 600, labels)
+        return BioData(M, 1:8, 600)
     end
 
 end # module

@@ -3,6 +3,7 @@ using DataFrames
 using BrainFlowML
 using DSP
 using Statistics
+using IterTools
 
 function get_gesture(file_name)
     test_filepath = joinpath(BrainFlowML.testdata_path, file_name)
@@ -34,10 +35,30 @@ end
         @test v == [true, true, false]
     end
 
-    @testset "partition matrix into training data" begin
-        A = rand(Int, 10, 4)
-        X = BrainFlowML.partition_samples(A, 4, 2)
-        @test X[:, 3] == A[[5,6,7,8], :][:]
+    @testset "partition into training data" begin
+        nsamples = 10
+        sample_size = 4
+        step_size = 2
+        nchannels = 4
+        all_partitions = collect(partition(1:nsamples, sample_size, step_size))
+        partition3 = [x for x in all_partitions[3]]
+        expected_partitions = length(all_partitions)
+
+        A = rand(Int, nsamples, nchannels)
+        X = BrainFlowML.partition_samples(A, sample_size, step_size)
+        @test size(X) == (sample_size*nchannels, expected_partitions)
+        expected_slice = A[partition3, :][:]
+        @test X[:, 3] == expected_slice
+
+        v = rand(Int, nsamples)
+        y = BrainFlowML.partition_labels(v, sample_size, step_size)
+        @test length(y) == expected_partitions
+        @test y[3] == v[partition3[end]]
+
+        bio_data = BrainFlowML.BioData(A, 1:nchannels, step_size)
+        X2, y = BrainFlowML.partition_samples(bio_data, sample_size , step_size)
+        @test X2 == X
+        @test length(y) == size(X, 2)
     end
 
     @testset "Labeling gestures with DSP" begin
