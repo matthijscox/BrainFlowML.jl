@@ -34,6 +34,12 @@ end
         @test v == [true, true, false]
     end
 
+    @testset "partition matrix into training data" begin
+        A = rand(Int, 10, 4)
+        X = BrainFlowML.partition_samples(A, 4, 2)
+        @test X[:, 3] == A[[5,6,7,8], :][:]
+    end
+
     @testset "Labeling gestures with DSP" begin
         bio_data = get_gesture("left_gesture.csv")
 

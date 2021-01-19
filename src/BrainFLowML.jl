@@ -5,6 +5,7 @@ module BrainFlowML
     using Statistics
     using DSP
     using LinearAlgebra
+    using IterTools
 
     export each_channel
 
@@ -83,17 +84,33 @@ module BrainFlowML
         deltas = diff(v)
         len = length(v)
         starts = findall(x->x==1, deltas)
-        for start_index in starts
+        @inbounds for start_index in starts
             new_start_index = start_index - shift + 1
             new_start_index = new_start_index < 1 ? 1 : new_start_index
             v[new_start_index:start_index] .= true
         end
         endings = findall(x->x==-1, deltas)
-        for end_index in endings
+        @inbounds for end_index in endings
             new_end_index = end_index + shift
             new_end_index = new_end_index > len ? len : new_end_index
             v[end_index:new_end_index] .= true
         end
+    end
+
+    # slice partitions out of A[x, :] and dump into matrix X[:, i] for use in algorithms
+    function partition_samples(A::AbstractMatrix{T}, sample_size::Int, step_size::Int) where T
+        nsamples = size(A, 1)
+        nchannels = size(A, 2)
+        npartitions = Int(floor((nsamples-sample_size)/step_size)+1)
+        X = zeros(T, nchannels*sample_size, npartitions)
+        @inbounds for (col, part) in enumerate(partition(1:nsamples, sample_size, step_size))
+            idx = [x for x in part] # need to convert tuple to array, perhaps this stuff can be done smarter
+            slice_of_A = A[idx, :]
+            for (row, value) in enumerate(slice_of_A)
+                X[row, col] = value
+            end
+        end
+        return X
     end
 
     function load_gesture(filepath)
