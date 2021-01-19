@@ -23,6 +23,24 @@ end
         @test collected_itr isa Array{Array{Float64,1},1}
     end
 
+    @testset "BioData append" begin
+        nchannels = 4
+        nsamples = 16
+
+        A = rand(Float64, nsamples, nchannels)
+        labels = ones(Int, nsamples)
+        bio_data1 = BrainFlowML.BioData(A, 1:nchannels, 600, labels)
+
+        A = rand(Float64, nsamples, nchannels)
+        labels = 2*ones(Int, nsamples)
+        bio_data2 = BrainFlowML.BioData(A, 1:nchannels, 600, labels)
+
+        append!(bio_data1, bio_data2)
+        @test size(bio_data1.raw) == (nsamples*2, nchannels)
+        @test length(bio_data1.labels) == nsamples*2
+        @test bio_data1.labels[end] == 2
+    end
+
     @testset "widen range" begin
         v = [false, false, false, true, false, false, false]
         BrainFlowML.widen_range!(v, 2)
@@ -46,9 +64,9 @@ end
 
         A = rand(Int, nsamples, nchannels)
         X = BrainFlowML.partition_samples(A, sample_size, step_size)
-        @test size(X) == (sample_size*nchannels, expected_partitions)
+        @test size(X) == (expected_partitions, sample_size*nchannels)
         expected_slice = A[partition3, :][:]
-        @test X[:, 3] == expected_slice
+        @test X[3, :] == expected_slice
 
         v = rand(Int, nsamples)
         y = BrainFlowML.partition_labels(v, sample_size, step_size)
@@ -58,7 +76,7 @@ end
         bio_data = BrainFlowML.BioData(A, 1:nchannels, step_size)
         X2, y = BrainFlowML.partition_samples(bio_data, sample_size , step_size)
         @test X2 == X
-        @test length(y) == size(X, 2)
+        @test length(y) == expected_partitions
     end
 
     @testset "Labeling gestures with DSP" begin

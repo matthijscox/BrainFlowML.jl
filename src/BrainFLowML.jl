@@ -13,8 +13,8 @@ module BrainFlowML
 
     include("savgol.jl")
 
-    mutable struct BioData
-        raw
+    mutable struct BioData{T}
+        raw::AbstractMatrix{T}
         channels::AbstractVector{Int} # indices of the (emg/eeg) data channel columns
         sample_rate::Int
         labels::AbstractVector{Int} # labels for the gestures, 0 is no gesture
@@ -26,6 +26,13 @@ module BrainFlowML
     function BioData(raw, channels::AbstractVector{Int}, sample_rate::Int)
         labels = zeros(Int, size(raw, 1))
         return BioData(raw, channels, sample_rate, labels)
+    end
+
+    function Base.append!(b1::BioData{T}, b2::BioData{T}) where T
+        @assert b1.channels == b2.channels && b1.sample_rate == b2.sample_rate
+        b1.raw = vcat(b1.raw, b2.raw)
+        append!(b1.labels, b2.labels)
+        return nothing
     end
 
     struct ChannelIterator
@@ -103,7 +110,7 @@ module BrainFlowML
         end
     end
 
-    # slice partitions out of A[x, :] and dump into matrix X[:, i] for use in algorithms
+    # slice windowed partitions out of A[window, :] and dump into matrix X[i, :] for use in algorithms
     function partition_samples(A::AbstractMatrix{T}, sample_size::Int, step_size::Int) where T
         nsamples = size(A, 1)
         nchannels = size(A, 2)
@@ -116,7 +123,7 @@ module BrainFlowML
                 X[row, col] = value
             end
         end
-        return X
+        return transpose(X)
     end
 
     # get the corresponding label per partition
