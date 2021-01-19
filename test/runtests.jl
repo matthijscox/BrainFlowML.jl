@@ -78,6 +78,16 @@ end
         @test length(y) == expected_partitions
     end
 
+    @testset "detrending" begin
+        A = rand(Float64, 10, 5) .+ 1.0
+        BrainFlowML.detrend!(A, 1:4)
+        m = [mean(chan) for chan in each_channel(A)]
+        for idx = 1:4
+            @test isapprox(m[idx], 0, atol=1e-14)
+        end
+        @test m[5] > 0.5
+    end
+
     @testset "Labeling gestures with DSP" begin
         bio_data = get_gesture("left_gesture.csv")
 
@@ -107,6 +117,33 @@ end
         file_paths = [joinpath(BrainFlowML.testdata_path, name) for name in file_names]
         bio_data = BrainFlowML.load_labeled_gestures(file_paths)
         @test unique(bio_data.labels) == [0, 1, 2, 3, 4]
+    end
+
+    @testset "preprocessing & prediction" begin
+        using JLD2
+        using DecisionTree
+
+        test_file = joinpath(BrainFlowML.testdata_path, "fist_gesture.csv")
+        bio_data = BrainFlowML.load_labeled_gesture(test_file, 1)
+
+        gesture_start = findfirst(x -> x > 0, diff(bio_data.labels))
+        gesture_end = findfirst(x -> x < 0, diff(bio_data.labels))
+        halfway_gesture = Int( ceil(gesture_start + (gesture_end-gesture_start)/2) )
+
+        modeled_sample_size = 128
+
+        sample_slice = halfway_gesture:halfway_gesture+modeled_sample_size-1
+        A = bio_data.raw[sample_slice, :]
+
+        nchannels = length(bio_data.channels)
+        v = BrainFlowML.preprocess_brainflow_data(A, bio_data.channels) # slow function, takes a millisecond due to smoothening
+        @test length(v) == nchannels*modeled_sample_size
+
+        test_model = joinpath(BrainFlowML.testdata_path, "model_file.jld2")
+        @load test_model model
+
+        prediction = apply_forest(model, v')
+        @test prediction == [3]
     end
 
 end

@@ -56,8 +56,17 @@ module BrainFlowML
 
     each_channel(b::BioData) = ChannelIterator(b)
 
+    each_channel(A::AbstractMatrix) = (view(A, :, n) for n in axes(A, 2))
+    each_channel(A::AbstractMatrix, chans::AbstractVector) = (view(A, :, n) for n in chans)
+
     function detrend!(b::BioData)
         for chan in each_channel(b)
+            detrend!(chan)
+        end
+    end
+
+    function detrend!(A::AbstractMatrix, chans::AbstractVector = axes(A, 2))
+        for chan in each_channel(A, chans)
             detrend!(chan)
         end
     end
@@ -76,10 +85,16 @@ module BrainFlowML
         return BioData(enveloped_data, 1:length(channels(b)), b.sample_rate, b.labels)
     end
 
-    function smooth_envelope(b::AbstractArray, window_size=33)
+    function smooth_envelope(b::AbstractVector, window_size::Int=33)
         hilbert_amplitude = abs.(DSP.Util.hilbert(b))
         v = savitzkyGolay(hilbert_amplitude, window_size, 1)
         return v
+    end
+
+    function smooth_envelope!(A::AbstractMatrix, chans::AbstractVector = axes(A, 2), window_size::Int=33)
+        for chan in each_channel(A, chans)
+            chan .= smooth_envelope(chan)
+        end
     end
 
     function sum_channels(b::BioData)
@@ -173,6 +188,16 @@ module BrainFlowML
             append!(bio_data, load_labeled_gesture(file_name, g+1))
         end
         return bio_data
+    end
+
+    # example function to preprocess a brainflow matrix before a model prediction
+    # assumes size(A) == (nsamples, nchannels)
+    function preprocess_brainflow_data(A::AbstractMatrix, chans::AbstractVector = axes(A, 2))
+        nchannels = length(chans)
+        nsamples = size(A, 1)
+        detrend!(A, chans)
+        smooth_envelope!(A, chans)
+        return reshape(view(A, :, chans), nsamples*nchannels, 1)
     end
 
 end # module
