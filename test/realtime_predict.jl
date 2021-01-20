@@ -5,6 +5,10 @@ using JLD2
 using DecisionTree # maybe MLJ in future
 using Makie
 
+# start by initializing the plot, it's the slowest part
+text_holder = Makie.Node("start")
+text(text_holder, show_axis=false, align = (:center, :center))
+
 # load a stored model
 test_model = joinpath(BrainFlowML.testdata_path, "model_file.jld2")
 @load test_model model
@@ -22,18 +26,12 @@ sleep(0.5) # wait a moment for brainflow buffer to fill, and other startup effec
 # make a prediction with the model:
 function predict_gesture_on_data(board_shim::BrainFlow.BoardShim, modeled_sample_size::Int = 128)
     data = BrainFlow.get_current_board_data(modeled_sample_size, board_shim)
-    v = BrainFlowML.preprocess_brainflow_data(data, BrainFlow.get_emg_channels(board_shim.board_id))
+    v = BrainFlowML.preprocess_brainflow_data(data', BrainFlow.get_emg_channels(board_shim.board_id))
     predicted_gesture = apply_forest(model, v')[1]
 end
 
-# initialize a text object in Makie
-gesture_map = ["", "left", "right", "fist", "spread"]
-scene = Scene()
-text_holder = Node("start")
-text(text_holder, show_axis=false)
-display(scene)
-
 # update continuously
+gesture_map = ["", "left", "right", "fist", "spread"]
 while True
     sleep(0.02)
     text_holder[] = gesture_map(predict_gesture_on_data(board_shim, modeled_sample_size))
