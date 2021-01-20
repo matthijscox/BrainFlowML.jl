@@ -5,12 +5,9 @@ using JLD2
 using DecisionTree # maybe MLJ in future
 using Makie
 
-# start by initializing the plot, it's the slowest part
-text_holder = Makie.Node("start")
-text(text_holder, show_axis=false, align = (:center, :center))
-
 # load a stored model
-test_model = joinpath(BrainFlowML.testdata_path, "model_file.jld2")
+folder = pwd() # or BrainFlowML.testdata_path
+test_model = joinpath(folder, "model_file.jld2")
 @load test_model model
 modeled_sample_size = 128 # ok, I should store this in the jld2...
 
@@ -32,9 +29,14 @@ end
 
 # update continuously
 gesture_map = ["", "left", "right", "fist", "spread"]
-while True
+
+# start by initializing the plot, it's the slowest part
+text_holder = Makie.Node("  start  ")
+text(text_holder, show_axis=false, align = (:center, :center))
+
+while true
     sleep(0.02)
-    text_holder[] = gesture_map(predict_gesture_on_data(board_shim, modeled_sample_size))
+    text_holder[] = gesture_map[predict_gesture_on_data(board_shim, modeled_sample_size)+1]
 end
 
 # done?

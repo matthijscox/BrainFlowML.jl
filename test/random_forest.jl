@@ -11,8 +11,10 @@ function smooth_samples!(X)
     end
 end
 
-file_names = ("left_gesture.csv", "right_gesture.csv", "fist_gesture.csv", "spread_gesture.csv")
-file_paths = [joinpath(BrainFlowML.testdata_path, name) for name in file_names]
+folder = pwd() # or BrainFlowML.testdata_path
+#file_names = ("left_gesture.csv", "right_gesture.csv", "fist_gesture.csv", "spread_gesture.csv")
+file_names = ("gesture_1_data.csv", "gesture_2_data.csv", "gesture_3_data.csv", "gesture_4_data.csv")
+file_paths = [joinpath(folder, name) for name in file_names]
 bio_data = BrainFlowML.load_labeled_gestures(file_paths)
 @test unique(bio_data.labels) == [0, 1, 2, 3, 4]
 
